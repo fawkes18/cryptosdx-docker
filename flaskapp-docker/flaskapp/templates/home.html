@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title>Crypto Sentiment</title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="{{url_for('static', filename='css/main.css')}}">
+    </head>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="/static/require.js"></script>
+    <body>
+        <div class="topnav">
+            <a class="active" href="/">CryptoSDX.com</a>
+            <a href="/about">About</a>
+            <a href="/contact">Contact</a>
+          </div> 
+          <br>
+        <table class="center">
+            <tr class="table_header">
+                <th></th>
+                <th>Name</th>
+                <th>1H Sentiment</th>
+                <th>Price</th>
+                <th>24H Change</th> 
+                <th>24H Sentiment</th>
+                <th>Weekly Sentiment</th>
+            </tr>
+            <tbody id="myTable">
+    
+            </tbody>
+        </table>
+
+            <script>
+                function titleCase(str) {
+                    var splitStr = str.toLowerCase().split('_');
+                    for (var i = 0; i < splitStr.length; i++) {
+
+                        splitStr[i] = splitStr[i].charAt(0).toUpperCase() + splitStr[i].substring(1);     
+                    }
+                    return splitStr.join(' '); 
+                };
+
+                function checkReturn(returnValue){
+                    if (returnValue > 0){
+                        return "+" + returnValue.toString().slice(0,4) + " %"
+                    }
+                    else{
+                        return returnValue.toString().slice(0,5) + " %"
+                    }
+                };
+
+                const api_url = "http://127.0.0.1:5000/api/cryptoinfo";
+                async function buildTable(){
+                    const response = await fetch(api_url);
+                    const data = await response.json();
+                    const table = document.getElementById("myTable")
+                    
+                    for (var i=0; i < data.length; i++){
+                        var coinTableName = titleCase(data[i].coin);
+                        var returnTableValue = checkReturn(data[i].daily_return);
+                        var row = `<tr class="clickable_row">
+                                        <td class="img_log" width="5">
+                                            <a class="rowlink" href="/${data[i].coin}">
+                                            <image src="static/img/${data[i].ticker.toLowerCase()}.svg" width="25" height="25" class="logo_image">
+                                        </td>
+                                        <td class="coin_name_ticker">
+                                            <span class="text_element_name">${coinTableName}</span>
+                                            <span class="text_element_ticker">${data[i].ticker}</span>
+                                        </td>
+                                        <td class="current_sentiment">${data[i].current_sentiment[0].toUpperCase() + data[i].current_sentiment.slice(1)}</td>
+                                        <td class="price">$${data[i].price.toFixed(2)}</td>
+                                        <td class="change">${returnTableValue}</td>
+                                        <td class="sentiment_today">${data[i].today_sentiment[0].toUpperCase() + data[i].today_sentiment.slice(1)}</td>
+                                        <td class="weekly_sentiment">${data[i].weekly_sentiment[0].toUpperCase() + data[i].weekly_sentiment.slice(1)}</td>
+                                    </tr>`
+                        table.innerHTML += row
+                    }
+                }
+
+                buildTable();
+            </script>      
+    </body>
+</html>

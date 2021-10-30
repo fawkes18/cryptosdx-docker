@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html>
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="X-UA-Compatible" content="IE=edge">
+        <title></title>
+        <meta name="description" content="">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <link rel="stylesheet" href="{{ url_for('static', filename='css/coin.css')}}">
+        <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+        <script type="text/javascript" src="http://ajax.googleapis.com/ajax/libs/jquery/1.8.3/jquery.min.js"></script>
+    </head>
+    <body>
+        <div class="topnav">
+            <a class="active" href="/">CryptoSDX.com</a>
+            <a href="/about">About</a>
+            <a href="/contact">Contact</a>
+          </div> 
+          <br>
+
+        <section>
+            <div class="headerbar">
+                <image src="static/img/sol.svg" width="50" height="50"></image>
+                <h2>Solana Sentiment</h2>
+            </div>
+        </section>
+    <div class="meta_info">
+        <div class="price-return-info" id="price-return-info"></div>
+        <div class="return-info" id="return-info"></div>
+        <div class="chart_area">
+            <div class="select_chart" id="select_chart">
+                <button id="72H" class="select_button">72H</button>
+                <button id="1W" class="selected">1W</button>
+                <button id="1M" class="select_button">1M</button>
+            </div>
+            <canvas id="myChart" width="900", height="400"></canvas>
+        </div>
+        <div class="sentiment-meta">
+            <div class="meta-left" id="meta-left"></div>
+            <div class="meta-center" id="meta-center"></div>
+            <div class="meta-right" id="meta-right"></div>
+        </div>
+        <div class="disclaimer">
+            <label id="disclaimer-label">Disclaimer:</label>
+            <br>
+            <br>
+            This web page should not be used as investment advice. While the sentiment might correlated
+            with the price, there is no actual guarantee that an investment strategy based on the sentiment of a 
+            cryptocurrency works. 
+            <br>
+            <br>
+            <label id="disclaimer-label">How CryptoSentiment.org works:</label>
+            <br>
+            <br>
+            Every Hour Social Media Posts are scraped from Twitter and Reddit which will then be analyzed be an
+            Artificial Intelligence in order to predict the Sentiment of a Post. Afterwards the average sentiment
+            Score will be calculated for each Cryptocurrency. The Sentiment Score is standardized so that it takes
+            vaules between 0 and 1.
+        </div>
+    </div>
+
+        <script>
+
+            const metaApiUrl = "http://127.0.0.1:5000/api/metainfo/solana"
+            async function fetchMetaData(url){
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                const price = data[0]["price"];
+                const dailyReturn = data[0]["return_today"]
+                const currentSentiment = data[0]["current_sentiment"];
+                const weeklySentiment = data[0]["weekly_sentiment"];
+                const todaySentiment = data[0]["today_sentiment"];
+
+                function checkReturn(returnValue){
+                    if (returnValue > 0){
+                        return "+" + returnValue.toString().slice(0,4) + " %"
+                    }
+                    else{
+                        return returnValue.toString().slice(0,5) + " %"
+                    }
+                };
+
+                const adjDailyReturn = checkReturn(dailyReturn);
+                console.log(adjDailyReturn);
+
+                document.getElementById("meta-left").innerHTML = `Current Sentiment: ${currentSentiment}`;
+                document.getElementById("meta-center").innerHTML = `24H Sentiment: ${todaySentiment}`;
+                document.getElementById("meta-right").innerHTML = `7D Sentiment: ${weeklySentiment}`;
+                document.getElementById("price-return-info").innerHTML = `$ ${price.toFixed(2)}`;
+                document.getElementById("return-info").innerHTML = `${adjDailyReturn}`;
+
+            };
+
+            fetchMetaData(metaApiUrl);
+
+            const api_url = "http://127.0.0.1:5000/api/sentiment_price_history/solana"
+            async function fetchData(url){
+                const response = await fetch(url);
+                const data = await response.json();
+
+
+                const dateList = [];
+                const returnList = [];
+                const sentimentList = [];
+
+                data.forEach(element => {
+                    const date = element["date_str"];
+                    dateList.push(date);
+                    const crypto_return = element["return"];
+                    returnList.push(crypto_return);
+                    const sentiment = element["sentiment"];
+                    sentimentList.push(sentiment)
+
+                });
+                return {dateList, returnList, sentimentList}
+            };
+
+            function calcMovingAverage(data){
+                const maList = [];
+                for (var i=1; i<data.length-1; i++){
+                    const mean = (data[i] + data[i-1] + data[i+1] + data[i-2] + data[i+2])/5;
+                    maList.push(mean)
+                };
+                return maList
+            };
+
+
+            async function plotChart(){
+                const api_url = "http://127.0.0.1:5000/api/sentiment_price_history/solana"
+                const data = await fetchData(api_url);
+
+                const returnMovingAverages = calcMovingAverage(data.returnList)
+                const sentimentMovingAverages = calcMovingAverage(data.sentimentList)
+                console.log(data.dateList);
+
+                adjDateList = [];
+
+                data.dateList.forEach(element => {
+                    const adjDate = element.split(" ")[0];
+                    adjDateList.push(adjDate);
+                });
+
+                const ctx = document.getElementById("myChart").getContext("2d"); 
+                const config = {
+                    type: "line",
+                    data: {
+                        labels: adjDateList.slice(-168),
+                        datasets: [{
+                            label: "return",
+                            data: returnMovingAverages.slice(-168),
+                            fill: false,
+                            backgroundColor: 'rgba(81, 112, 241, 0.2)',
+                            borderColor: 'rgba(22, 82, 240)',
+                            borderWidth: 1.8,
+                            yAxisID: "y"
+                        },{
+                            label: "sentiment",
+                            data: sentimentMovingAverages.slice(-168),
+                            fill: false,
+                            borderWidth: 1.8,
+                            borderColor: "rgba(255, 200, 0, 1)",
+                            yAxisID: "sent_score"
+        
+                        }]
+                    },
+                    options: {
+                    scales: {
+                        x: {
+                        grid: {
+                            display: false,
+                        },
+                        ticks: {
+                            maxTicksLimit: 6,
+                            maxRotation: 0
+                        }
+                    },
+                        y: {
+                            type: "linear",
+                            position: "left",
+                            grid: {
+                                display: false,
+                            },
+                            title: {
+                                display: true,
+                                text: "1H Return in pct."
+                            } 
+                        },
+                        sent_score: {
+                            type: "linear",
+                            position: "right",
+
+                            grid: {
+                                color: 'rgba(0,255,0,0.1)',
+                                display: false,
+                            },
+                            title: {
+                                display: true,
+                                text: "Sentiment Score"
+                            }
+                        }
+                    },
+                    elements: {
+                        point: {
+                            radius: 0
+                        }
+                    },
+                    animation: {
+                        duration: 150
+                    },
+                    responsive: false,
+                    plugins: {
+                        legend: {
+                            display: true
+                    }
+                }}};    
+
+            const myChart = new Chart(ctx, config)
+            
+            $("#1W").click(function() {
+                var dataUpdated = myChart.config.data;
+                dataUpdated.datasets[0].data = returnMovingAverages.slice(-168);
+                dataUpdated.datasets[1].data = sentimentMovingAverages.slice(-168);
+                dataUpdated.labels = adjDateList.slice(-168)
+                myChart.update();
+            });
+
+            $("#72H").click(function() {
+                var dataUpdated = myChart.config.data;
+                dataUpdated.datasets[0].data = returnMovingAverages.slice(-72);
+                dataUpdated.datasets[1].data = sentimentMovingAverages.slice(-72);
+                dataUpdated.labels = data.dateList.slice(-72)
+                myChart.update();
+            });
+
+            $("#1M").click(function() {
+                var dataUpdated = myChart.config.data;
+
+                const filteredSentimentMA = sentimentMovingAverages.slice(-720).filter(function (value, index, ar) {
+                    return (index % 4 == 0);
+                } );
+
+                const filteredReturnMA = returnMovingAverages.slice(-720).filter(function (value, index, ar) {
+                    return (index % 4 == 0);
+                } );
+
+                const filteredDates = adjDateList.slice(-720).filter(function (value, index, ar) {
+                    return (index % 4 == 0);
+                } );
+
+                dataUpdated.datasets[0].data = filteredReturnMA;
+                dataUpdated.datasets[1].data = filteredSentimentMA;
+                dataUpdated.labels = filteredDates;
+                myChart.update();
+            });
+
+            };
+            
+            plotChart();
+
+            $('button').on('click', function(){
+                $('button').removeClass('selected');
+                $(this).addClass('selected');
+            });
+
+        </script>
+    </body>
+</html>
